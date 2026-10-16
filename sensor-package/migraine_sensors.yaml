@@ -216,31 +216,20 @@ template:
       # set of "migraine_*" entities used by the scoring system.
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      - name: "Migraine Temperature"
+      - name: "Migraine Temperature (°C)"
         unique_id: migraine_temperature
         state: >
           {% set weather_entity = states('input_text.migraine_source_weather') %}
           {% set temp_entity = states('input_text.migraine_source_temperature') %}
-          {% macro to_celsius(v, source_entity=None) %}
-            {% set f = v | float(0) %}
-            {% set unit = state_attr(source_entity, 'unit_of_measurement') if source_entity else None %}
-            {% if unit in ['°F','F','fahrenheit'] or (unit is none and f > 50) %}
-              {{ ((f - 32) * 5 / 9) | round(2) }}
-            {% else %}
-              {{ f }}
-            {% endif %}
-          {% endmacro %}
           {% if temp_entity not in ['not_configured','unknown','unavailable','',none] %}
             {% set v = states(temp_entity) %}
             {% if v not in ['unknown','unavailable','',none] %}
-              {{ to_celsius(v, temp_entity) | trim }}
+              {{ v | float(0) }}
             {% else %}
-              {% set wa = state_attr(weather_entity, 'temperature') %}
-              {{ to_celsius(wa) | trim if wa is number else 0 }}
+              {{ state_attr(weather_entity, 'temperature') | float(0) }}
             {% endif %}
           {% elif weather_entity not in ['not_configured','unknown','unavailable','',none] %}
-            {% set wa = state_attr(weather_entity, 'temperature') %}
-            {{ to_celsius(wa) | trim if wa is number else 0 }}
+            {{ state_attr(weather_entity, 'temperature') | float(0) }}
           {% else %}
             {{ 0 }}
           {% endif %}
@@ -272,65 +261,39 @@ template:
         state: >
           {% set weather_entity = states('input_text.migraine_source_weather') %}
           {% set pres_entity = states('input_text.migraine_source_pressure') %}
-          {% macro to_hpa(v) %}
-            {% set f = v | float(0) %}
-            {% if f >= 25 and f <= 33 %}
-              {{ (f * 33.8639) | round(2) }}
-            {% elif f >= 600 and f <= 825 %}
-              {{ (f * 1.33322) | round(2) }}
-            {% else %}
-              {{ f }}
-            {% endif %}
-          {% endmacro %}
           {% if pres_entity not in ['not_configured','unknown','unavailable','',none] %}
             {% set v = states(pres_entity) %}
-            {% if v not in ['unknown','unavailable','',none] and v | float(0) > 0 %}
-              {{ to_hpa(v) | trim }}
+            {% if v not in ['unknown','unavailable','',none] and v | float(0) > 900 %}
+              {{ v | float(0) }}
             {% elif weather_entity not in ['not_configured','unknown','unavailable','',none] %}
               {% set wa = state_attr(weather_entity, 'pressure') %}
-              {{ to_hpa(wa) | trim if wa is number else 0 }}
+              {{ wa | float(0) if wa is number and wa | float(0) > 900 else 0 }}
             {% else %}
               {{ 0 }}
             {% endif %}
           {% elif weather_entity not in ['not_configured','unknown','unavailable','',none] %}
             {% set wa = state_attr(weather_entity, 'pressure') %}
-            {{ to_hpa(wa) | trim if wa is number else 0 }}
+            {{ wa | float(0) if wa is number and wa | float(0) > 900 else 0 }}
           {% else %}
             {{ 0 }}
           {% endif %}
         unit_of_measurement: "hPa"
         icon: mdi:gauge
 
-      - name: "Migraine Wind Speed"
+      - name: "Migraine Wind Speed (km/h)"
         unique_id: migraine_wind_speed
         state: >
           {% set weather_entity = states('input_text.migraine_source_weather') %}
           {% set wind_entity = states('input_text.migraine_source_wind_speed') %}
-          {% macro to_kmh(v, source_entity=None) %}
-            {% set f = v | float(0) %}
-            {% set unit = state_attr(source_entity, 'unit_of_measurement') if source_entity else None %}
-            {% set weather_unit = state_attr(weather_entity, 'wind_speed_unit') if weather_entity not in ['not_configured','unknown','unavailable','',none] else None %}
-            {% if unit in ['mph','MPH'] or (source_entity is none and weather_unit == 'mph') %}
-              {{ (f * 1.60934) | round(2) }}
-            {% elif unit in ['m/s','meters_per_second'] or (source_entity is none and weather_unit == 'm/s') %}
-              {{ (f * 3.6) | round(2) }}
-            {% elif unit in ['knots','kn','kt'] or (source_entity is none and weather_unit in ['kn','knots']) %}
-              {{ (f * 1.852) | round(2) }}
-            {% else %}
-              {{ f }}
-            {% endif %}
-          {% endmacro %}
           {% if wind_entity not in ['not_configured','unknown','unavailable','',none] %}
             {% set v = states(wind_entity) %}
             {% if v not in ['unknown','unavailable','',none] %}
-              {{ to_kmh(v, wind_entity) | trim }}
+              {{ v | float(0) }}
             {% else %}
-              {% set wa = state_attr(weather_entity, 'wind_speed') %}
-              {{ to_kmh(wa) | trim if wa is number else 0 }}
+              {{ state_attr(weather_entity, 'wind_speed') | float(0) }}
             {% endif %}
           {% elif weather_entity not in ['not_configured','unknown','unavailable','',none] %}
-            {% set wa = state_attr(weather_entity, 'wind_speed') %}
-            {{ to_kmh(wa) | trim if wa is number else 0 }}
+            {{ state_attr(weather_entity, 'wind_speed') | float(0) }}
           {% else %}
             {{ 0 }}
           {% endif %}
@@ -556,9 +519,9 @@ template:
         unique_id: migraine_factor_air_quality
         state: >
           {% set aqi = states('sensor.migraine_waqi_aqi') | float(0) %}
-          {% set pm25 = states('sensor.migraine_waqi_pm25') | float(0) %}
+          {% set pm25 = states('sensor.migraine_waqi_pm2_5') | float(0) %}
           {% set pm10 = states('sensor.migraine_waqi_pm10') | float(0) %}
-          {% set o3 = states('sensor.migraine_waqi_o3') | float(0) %}
+          {% set o3 = states('sensor.migraine_waqi_ozone') | float(0) %}
           {% set base = 0 if aqi <= 50 else 1 if aqi <= 100 else 2 if aqi <= 150 else 3 %}
           {% set nudge = 0 %}
           {% if pm25 >= 25 %}{% set nudge = nudge + 1 %}{% endif %}
@@ -568,9 +531,9 @@ template:
         icon: mdi:smog
         attributes:
           aqi: "{{ states('sensor.migraine_waqi_aqi') }}"
-          pm25_ugm3: "{{ states('sensor.migraine_waqi_pm25') }}"
+          pm25_ugm3: "{{ states('sensor.migraine_waqi_pm2_5') }}"
           pm10_ugm3: "{{ states('sensor.migraine_waqi_pm10') }}"
-          o3_ugm3: "{{ states('sensor.migraine_waqi_o3') }}"
+          o3_ugm3: "{{ states('sensor.migraine_waqi_ozone') }}"
 
       - name: "Migraine Factor: Thunderstorm Nearby"
         unique_id: migraine_factor_thunderstorm_nearby
@@ -808,14 +771,14 @@ template:
         unique_id: poor_air_today
         state: >
           {% set aqi = states('sensor.migraine_waqi_aqi') | float(0) %}
-          {% set pm25 = states('sensor.migraine_waqi_pm25') | float(0) %}
+          {% set pm25 = states('sensor.migraine_waqi_pm2_5') | float(0) %}
           {{ aqi > 100 or pm25 >= 25 }}
         icon: >
           {% if is_state(this.entity_id,'on') %}mdi:smog{% else %}mdi:weather-sunny{% endif %}
         device_class: problem
         attributes:
           aqi: "{{ states('sensor.migraine_waqi_aqi') }}"
-          pm25: "{{ states('sensor.migraine_waqi_pm25') }}"
+          pm25: "{{ states('sensor.migraine_waqi_pm2_5') }}"
 
 
 ###############################################################################
